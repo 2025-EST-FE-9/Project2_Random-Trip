@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SelectResult</title>
+    <link href="/CSS/pubHeader.css" rel="stylesheet">
+    <link href="/CSS/pubFooter.css" rel="stylesheet">
+    <link href="/CSS/resultpage.css" rel="stylesheet">
+</head>
+<body>
+
+    <!-- header -->
+    <header>
+        <div id="headerContainer">
+            <div id="headerHomeBtn">
+                <a href="main.html">
+                    <img src="/IMG/rogo.png" alt="">
+                </a>
+            </div>
+
+            <div id="headerCat">
+                <ul>
+                    <li>Cat1</li>
+                    <li>Cat2</li>
+                    <li>Cat3</li>
+                </ul>
+            </div>
+    
+            <div id="headerBtns">
+                <button>로그인</button>
+                <button>회원가입</button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div id="mainContainer">
+            <!-- 메인 이미지 영역 -->
+            <div id="carousel">
+                <div class="carouselTrack">
+                    <img class="cItem" src="/IMG/busan_main.jpg" alt="이미지가 없습니다.">
+                </div>
+            </div>
+
+            <!-- 결과 카드 영역 -->
+            <div id="resultCard">
+                <!-- 제목 -->
+                <div id="resultBox">
+                    <p class="cityName">이번 랜덤 여행지는 바로 <strong>부산</strong>입니다.</p>
+                    <h2 id="resultTitle">선택한 키워드</h2>
+                    <!-- 사용자 선택 태그 영역 -->
+                    <div id="tagContainer"></div>
+                </div>
+    
+            </div>
+        </div>
+    </main>
+
+    <!-- footer -->
+    <footer>
+        <div id="footerContainer"></div>
+    </footer>
+
+    <script src="/JS/result.js"></script>
+</body>
+</html>
