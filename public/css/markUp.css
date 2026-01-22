@@ -1,0 +1,396 @@
+/* =========================
+   Unified CSS (common + reults + style)
+   - 중복 제거
+   - 지도 높이 충돌 해결(mapWrap만 책임, #map은 100%)
+   - 슬라이더 모바일 높이 정상화
+   ========================= */
+
+/* Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root{
+  --bg: #f4f6f8;
+  --cardShadow: 0 10px 30px rgba(0,0,0,.25);
+  --border: 1px solid #eee;
+  --text: #111;
+}
+
+/* Body: 공통/common/style의 padding/margin 충돌 제거 */
+body{
+  font-family: Pretendard, system-ui, -apple-system, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 0;
+}
+
+/* ===== Page ===== */
+.page{
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* ===== Info Header ===== */
+.info{
+  padding: 18px 16px;
+  text-align: center;
+  background: #fff;
+  border-bottom: var(--border);
+}
+.info__title{
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.info__sub{
+  font-size: 13px;
+  color: #666;
+}
+
+/* ===== Tabs ===== */
+.tabs{
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border-bottom: var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.tabs::-webkit-scrollbar{ display:none; }
+
+.tab{
+  padding: 9px 14px;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  background: #fff;
+  white-space: nowrap;
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: all .2s;
+}
+.tab:hover{ border-color:#111; }
+.tab.active{
+  border-color:#111;
+  background:#111;
+  color:#fff;
+  font-weight: 800;
+}
+
+/* ===== Map ===== */
+/* ✅ 지도 높이는 mapWrap만 담당 */
+.mapWrap{
+  position: relative;
+  width: 100%;
+  height: clamp(260px, 45vh, 520px);
+  background: #f0f0f0;
+}
+
+/* ✅ #map / .map은 항상 래퍼 100% */
+#map, .map{
+  width: 100%;
+  height: 100%;
+}
+
+/* Badge */
+.badge{
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 10;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* ===== Cards Header ===== */
+.cards{
+  background:#fff;
+  padding: 16px 16px 10px;
+  border-bottom: var(--border);
+}
+.cards__head{
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  gap: 12px;
+}
+.cards__title{
+  font-size: 18px;
+  font-weight: 800;
+}
+.cards__hint{
+  font-size: 12px;
+  color:#999;
+}
+
+/* ✅ 기존 reults.css의 #track(가로 트랙)은 지금 화면에서 혼란만 주면 숨김 */
+#track{ display:none; }
+
+/* ===== Card Grid ===== */
+.cardContainer#list{
+  background: var(--bg);
+  width: 100%;
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 14px 40px 40px;
+  display:grid;
+  gap: 16px;
+  grid-template-columns: repeat(5, minmax(0,1fr));
+}
+
+/* ===== Card ===== */
+.card{
+  height: 25rem;
+  border-radius: 18px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  box-shadow: var(--cardShadow);
+  transition: .3s;
+  display: flex;
+  flex-direction: column;
+}
+.card:hover{ transform: translateY(-8px); }
+
+.card-bg{
+  width:100%;
+  height:100%;
+  object-fit: cover;
+  transition: .6s;
+  flex-shrink: 0;
+}
+.card:hover .card-bg{ transform: scale(1.1); }
+
+.overlay{
+  position:absolute;
+  inset:0;
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  background: linear-gradient(to-top, rgba(0,0,0,0.6), transparent);
+  color: #fff;
+}
+
+.overlay h3,
+.overlay .address,
+.tags .tag{
+  text-shadow: 0 1px 3px rgba(0,0,0,.7);
+}
+.overlay h3{ font-size: 18px; }
+.overlay .address{
+  font-size: 14px;
+  margin-top: 4px;
+  color: rgba(255,255,255,0.92); /* ✅ 밝게 고정 */
+  font-weight: 600;
+}
+
+.tags{
+  display:flex;
+  gap:6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.tag{
+  font-size: 12px;
+  background: rgba(0,0,0,.4);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: .2s;
+}
+.tag:hover{ background: rgba(0,0,0,.6); }
+
+/* Wishlist icon */
+.icon-box{
+  position:absolute;
+  top:14px;
+  right:14px;
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  background: rgba(255,255,255,0.8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index: 50;
+  transition: .25s;
+}
+.icon-box:hover{
+  background: rgb(252,114,160);
+  transform: scale(1.1);
+}
+.icon{ width: 20px; }
+
+/* ===== Modal ===== */
+.modal-bg{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.75);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.modal{
+  position: relative;
+  width: 900px;
+  max-width: 95%;
+  background: #111;
+  color: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.modal-close{
+  position:absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+/* 즐겨찾기 활성화 시 아이콘 스타일 (노란색 필터 적용) */
+.icon.active {
+  filter: sepia(100%) saturate(1000%) hue-rotate(5deg) brightness(100%);
+  /* 만약 이미지가 흰색이라면 위 필터로 노랗게 변합니다. 
+     이미지 색상에 따라 필터 값 조절이 필요할 수 있습니다. */
+  transform: scale(1.2); /* 강조 효과 */
+  transition: all 0.2s ease;
+}
+.modal-close img{ width:100%; height:100%; object-fit: contain; }
+.modal-close:hover{ transform: scale(1.1); }
+
+.modal-body{ padding: 20px; }
+.modal-body #mAddress,
+.modal-body #mDistance{
+  font-size: 16px;
+  color: rgba(255,255,255,0.80);
+  margin: 4px 0;
+}
+.modal-body #mDesc{
+  font-size: 15px;
+  color: #ddd;
+  line-height: 1.6;
+  margin: 12px 0;
+}
+
+/* ===== Slider ===== */
+.slider, #slider{
+  position: relative;
+  width: 100%;
+  height: 420px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.slider-track, #sliderTrack{
+  display:flex;
+  width:100%;
+  height:100%;
+  transition: transform .35s ease;
+  will-change: transform;
+}
+
+.slider-track img, #sliderTrack img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  flex: 0 0 100%;
+  display:block;
+  user-select: none;
+  pointer-events: none; /* ✅ 버튼 클릭 방해 제거 */
+}
+
+/* slider buttons */
+.slider-btn{
+  position:absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.75);
+  border: none;
+  cursor: pointer;
+  display:grid;
+  place-items:center;
+  z-index: 50;
+  transition: .2s;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+.slider-btn:hover{
+  background: rgba(255,255,255,.95);
+  transform: translateY(-50%) scale(1.05);
+}
+.slider-btn:active{
+  transform: translateY(-50%) scale(0.98);
+}
+.slider-btn-left{ left: 12px; }
+.slider-btn-right{ right: 12px; }
+.slider-btn img{ width:20px; height:20px; }
+
+/* modal buttons */
+.modal-btns{
+  display:flex;
+  gap: 12px;
+  margin: 12px 0;
+}
+.modal-btn{
+  background:#222;
+  border:none;
+  color:#fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap: 6px;
+  transition: .25s;
+}
+.modal-btn:hover{ transform: scale(1.05); }
+.modal-btn img{ width: 18px; height: 18px; }
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px){
+  .cardContainer#list{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+@media (max-width: 600px){
+  .info{ padding: 14px 12px; }
+  .info__title{ font-size: 18px; }
+  .info__sub{ font-size: 12px; }
+
+  .tabs{ padding: 8px 10px; gap: 6px; }
+  .tab{ padding: 7px 12px; font-size: 12px; }
+
+  .mapWrap{ height: 320px; } /* ✅ 모바일 지도 과도하게 커지지 않게 */
+  .badge{ top:10px; left:10px; padding: 6px 10px; font-size: 11px; }
+
+  .cards{ padding: 12px 12px 8px; }
+  .cards__title{ font-size: 16px; }
+  .cards__hint{ display:none; }
+
+  .cardContainer#list{
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px 12px 24px;
+  }
+
+  /* ✅ style.css의 100rem 같은 값 제거하고 정상 높이로 */
+  .slider, #slider{ height: 280px; }
+}

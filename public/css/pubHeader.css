@@ -1,0 +1,105 @@
+/* header */
+#headerContainer {
+  width: 100%;
+  height: 8vh;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+}
+
+/* 홈 버튼 */
+#headerHomeBtn {
+  width: 140px;
+  height: 100%;
+  border: 0.5px solid gray;
+  display: flex;
+  align-items: center;
+}
+
+#headerHomeBtn > a > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 카테고리 */
+#headerCat {
+  flex: 1;
+  height: 100%;
+  border: 0.5px solid gray;
+}
+
+#headerCat > ul {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+#headerCat > ul > li {
+  margin: 0 10px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+/* 우측 버튼들 */
+#headerBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#headerBtns > button {
+  cursor: pointer;
+  font-weight: 400;
+  text-align: center;
+  border: 1px solid transparent;
+  color: #fff;
+  background-color: #0d6efd;
+  border-radius: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+#headerBtns > button:hover {
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+@media (max-width: 768px) {
+  #headerContainer {
+    height: 56px;
+    padding: 0 8px;
+  }
+
+  /* 카테고리 숨김 (모바일에서 공간 확보) */
+  #headerCat {
+    display: none;
+  }
+
+  /* 홈 버튼 축소 */
+  #headerHomeBtn {
+    width: 110px;
+  }
+
+  /* 버튼 2개만 노출 */
+  #headerBtns > button {
+    display: none;
+  }
+
+  #headerBtns > button:nth-child(1),
+  #headerBtns > button:nth-child(2) {
+    display: inline-flex;
+  }
+
+  #headerBtns > button {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+}
