@@ -1,0 +1,246 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f5f6f8;
+}
+
+/* Header 높이 고정 */
+#header {
+  height: 80px;
+}
+
+#headerContainer {
+  height: 80px !important;
+  min-height: 80px !important;
+}
+
+/* Header 스타일 */
+#header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1000;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  height: 80px;
+  margin: 0;
+  padding: 0;
+}
+
+#header * {
+  margin: 0;
+  padding: 0;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+  width: 60%;
+  padding-top: 80px;
+  margin: 0 auto;
+  padding-left: 0;
+  padding-right: 0;
+  box-sizing: border-box;
+}
+
+/* 왼쪽 */
+.left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+#map {
+  flex: 1;
+  width: 100%;
+}
+
+/* 오른쪽 */
+.right {
+  width: 360px;
+  background: #fff;
+  border-left: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.toolbar button {
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: #007aff;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.toolbar button:disabled {
+  background: #ccc;
+  cursor: default;
+}
+
+.route-box {
+  padding: 12px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.route-box h3 {
+  margin: 0 0 8px;
+}
+
+#routeList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#routeList li {
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+#routeList .empty {
+  color: #999;
+}
+
+/* 카드 컨테이너 - 지도 위에 절대 위치 */
+.card-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid #ddd;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+/* 스크롤바 깔끔하게 */
+.card-container::-webkit-scrollbar {
+  height: 6px;
+}
+.card-container::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.card {
+  min-width: 240px;
+  max-width: 240px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card.selected {
+  border: 2px solid #007aff;
+  cursor: grab;
+}
+
+.card.selected:active {
+  cursor: grabbing;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.card-image {
+  position: relative;
+  height: 120px;
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+}
+
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.star {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 22px;
+  color: #ffcc00;
+  cursor: pointer;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: transform 0.2s;
+}
+
+.star:hover {
+  transform: scale(1.2);
+}
+
+.card-body {
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 지도 숫자 마커 */
+.number-marker {
+  background: #349266;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* 카드 내부 숫자 마커 (지도와 동일한 스타일) */
+.card-image .number-marker {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+
+/* 선택된 루트 리스트 ★ */
+.route-star {
+  color: #ffcc00;
+  font-size: 14px;
+  margin-right: 6px;
+  vertical-align: middle;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.route-star:hover {
+  transform: scale(1.2);
+}
