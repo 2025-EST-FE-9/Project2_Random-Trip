@@ -1,4 +1,49 @@
 import { addFavorite, removeFavorite, getFavorites, checkIsFavorite, RTDB_BASE } from "./firebase.js";
+// ✅ Kakao SDK를 확실히 로드 (없으면 주입)
+function loadKakaoSdk({ appkey, libraries = "services", autoload = false } = {}) {
+  return new Promise((resolve, reject) => {
+    // 이미 로드됨
+    if (window.kakao && window.kakao.maps) return resolve();
+
+    // 이미 script 태그가 있으면 대기만
+    const existing = document.querySelector('script[data-kakao-sdk="true"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Kakao SDK script load error")));
+      return;
+    }
+
+    if (!appkey) {
+      return reject(new Error("Kakao appkey가 없습니다. render-places.js에 appkey를 넣거나 HTML에 SDK script를 넣어주세요."));
+    }
+
+    const s = document.createElement("script");
+    s.dataset.kakaoSdk = "true";
+    s.async = true;
+    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(appkey)}&libraries=${encodeURIComponent(libraries)}&autoload=${autoload ? "true" : "false"}`;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Kakao SDK script load error"));
+    document.head.appendChild(s);
+  });
+}
+
+// ===== 즐겨찾기 상태 캐시(Set) =====
+let favIdSet = new Set();
+let favLoaded = false;
+
+// 앱 시작 시 1회만 서버에서 즐겨찾기 목록 동기화
+async function ensureFavoritesLoaded() {
+  if (favLoaded) return;
+  try {
+    const favs = await getFavorites();
+    favIdSet = new Set((favs || []).map(x => String(x.id)));
+    favLoaded = true;
+  } catch (e) {
+    console.warn("즐겨찾기 초기 로드 실패:", e);
+    favIdSet = new Set();
+    favLoaded = true; // 무한 재시도 방지
+  }
+}
 
 /***********************
  * 0) 기본 설정/상수
@@ -8,7 +53,7 @@ const BUSAN = { lat: 35.1795543, lng: 129.0756416 };
 const SERVER_URL = "/api/busan";  // 중요: 상대경로
 const fallbackImg = "https://placehold.co/400x260?text=No+Image";
 
- // DOM
+// DOM
 const tabs = document.getElementById("tabs");
 const track = document.getElementById("track");
 const badge = document.getElementById("countBadge");
@@ -66,9 +111,9 @@ if (selectedTag && TAG_TO_TAB[selectedTag]) {
   activeKey = TAG_TO_TAB[selectedTag];
 }
  
-console.log("selectedTag:", selectedTag);
-console.log("selectedTagData length:", Array.isArray(selectedTagData) ? selectedTagData.length : null);
-console.log("SELECTED_CATEGORIES:", window.SELECTED_CATEGORIES);
+const categoriesParam = qp.get("categories") || "";
+const SELECTED_CATEGORIES = categoriesParam.split(",").map(s => s.trim()).filter(Boolean);
+
 
   const CONTENT = {
     KTO: {
@@ -87,11 +132,11 @@ console.log("SELECTED_CATEGORIES:", window.SELECTED_CATEGORIES);
    * 1) 탭 설정(단일 진실)
    ***********************/
   let TAB_CONFIG = [
-  { key: "tour",     label: "관광지",   source: "KTO",   contentTypeId: CONTENT.KTO.TOUR },
-  { key: "food",     label: "맛집",     source: "RTDB", rtdbPath: "restaurants", categoryGroupCode: CONTENT.KAKAO.FOOD, query: "부산" },
-  { key: "cafe",     label: "카페",     source: "RTDB", rtdbPath: "cafes", categoryGroupCode: CONTENT.KAKAO.CAFE, query: "부산" },
-  { key: "activity", label: "액티비티", source: "RTDB", rtdbPath: "activities",  contentTypeId: CONTENT.KTO.ACTIVITY },
-  { key: "photo",    label: "인생샷",   source: "RTDB", rtdbPath: "photos",  contentTypeId: CONTENT.KTO.TOUR, arrange: "P"},
+  { key: "tour",     label: "관광지",   source: "KTO",  contentTypeId: CONTENT.KTO.TOUR },
+  { key: "food",     label: "맛집",     source: "RTDB", rtdbPath: "restaurants" },
+  { key: "cafe",     label: "카페",     source: "RTDB", rtdbPath: "cafes" },
+  { key: "activity", label: "액티비티", source: "RTDB", rtdbPath: "activities" },
+  { key: "photo",    label: "인생샷",   source: "RTDB", rtdbPath: "photos" },
   { key: "fav",      label: "즐겨찾기", source: "FAV" }
 ];
 
@@ -99,39 +144,41 @@ console.log("SELECTED_CATEGORIES:", window.SELECTED_CATEGORIES);
    * 2) 지도 초기화
    ***********************/
   function initKakaoMap() {
-    if (!window.kakao || !kakao.maps) {
-      console.error("Kakao SDK not loaded");
+  if (!window.kakao || !window.kakao.maps) {
+    console.error("❌ Kakao SDK not loaded");
+    return;
+  }
+
+  // ✅ autoload=false 대응: 항상 load로 감싸기
+  kakao.maps.load(() => {
+    const container = document.getElementById("map");
+    if (!container) {
+      console.error("❌ map 요소를 찾을 수 없습니다");
       return;
     }
 
-    kakao.maps.load(() => {
-      const container = document.getElementById("map");
-      const options = {
-        center: new kakao.maps.LatLng(BUSAN.lat, BUSAN.lng),
-        level: 7,
-      };
+    const options = {
+      center: new kakao.maps.LatLng(BUSAN.lat, BUSAN.lng),
+      level: 7,
+    };
 
-      map = new kakao.maps.Map(container, options);
-      infoWindow = new kakao.maps.InfoWindow({ zIndex: 3 });
+    map = new kakao.maps.Map(container, options);
+    infoWindow = new kakao.maps.InfoWindow({ zIndex: 3 });
 
-      if (window.SELECTED_CATEGORIES && window.SELECTED_CATEGORIES.length > 0) {
-      const wanted = new Set([...window.SELECTED_CATEGORIES, "fav"]); // ✅ fav 강제 포함
+    // 탭 필터링 로직 그대로
+    if (SELECTED_CATEGORIES.length > 0) {
+      const wanted = new Set([...(window.SELECTED_CATEGORIES || []), "fav"]);
       const filtered = TAB_CONFIG.filter(tab => wanted.has(tab.key));
-
-      // ✅ 필터 결과가 비면, 탭을 날리지 말고 원본 유지
       if (filtered.length > 0) {
         TAB_CONFIG = filtered;
-        if (!TAB_CONFIG.some(t => t.key === activeKey)) {
-          activeKey = TAB_CONFIG[0].key;
-        }
-      } else {
-        console.warn("SELECTED_CATEGORIES 매칭 실패:", window.SELECTED_CATEGORIES);
+        if (!TAB_CONFIG.some(t => t.key === activeKey)) activeKey = TAB_CONFIG[0].key;
       }
     }
+
     renderTabs();
     loadAndRender(activeKey);
-    });  // ← kakao.maps.load() 닫기
-  }  
+  });
+}
 
 
   /***********************
@@ -325,9 +372,17 @@ function renderList(places, tab) {
     // 1. [중요] 이미 즐겨찾기인지 서버에 확인 후 노란색 칠하기
   // (비동기라서 화면이 먼저 뜨고 0.x초 뒤에 색이 칠해질 수 있습니다)
   const iconImg = card.querySelector(".icon");
-  checkIsFavorite(p.id).then(isFav => {
-    if (isFav) iconImg.classList.add("active");
-  });
+  const id = String(p.id);
+const isFavTab = (tab.key === "fav" || tab.source === "FAV");
+
+// ✅ 즐겨찾기 탭은 항상 노란색 유지
+if (isFavTab) {
+  iconImg.classList.add("active");
+} else {
+  // ✅ 일반 탭은 캐시 기준으로 상태 표시
+  if (favIdSet.has(id)) iconImg.classList.add("active");
+  else iconImg.classList.remove("active");
+}
 
   // 2. 카드 클릭 (모달 열기)
   card.addEventListener("click", () => {
@@ -336,35 +391,65 @@ function renderList(places, tab) {
 
   // 3. 하트 아이콘 클릭 (Firebase 저장/삭제)
   const iconBox = card.querySelector(".icon-box");
-  
-  iconBox.addEventListener("click", async (e) => { // async 추가
-    e.stopPropagation();
 
-    // 현재 상태 확인 (클래스가 있으면 이미 즐겨찾기 상태)
-    const isCurrentlyFav = iconImg.classList.contains("active");
+iconBox.addEventListener("click", async (e) => {
+  e.stopPropagation();
 
-    if (isCurrentlyFav) {
-      // 이미 있으니 -> 삭제 시도
-      const success = await removeFavorite(p.id);
-      if (success) {
-        alert("즐겨찾기에서 삭제되었습니다.");
-        iconImg.classList.remove("active");
-        
-        // 즐겨찾기 탭 보고 있었으면 화면에서 바로 지워주기
-        if (activeKey === "fav") {
-            card.remove();
-            setCount(list.children.length);
-        }
-      }
+  const id = String(p.id);
+  const isFavTab = (tab.key === "fav" || tab.source === "FAV");
+
+  // ✅ fav 탭: "삭제"만 허용 + 삭제되면 카드 제거
+  if (isFavTab) {
+    const ok = await removeFavorite(id);
+    if (ok) {
+      favIdSet.delete(id);
+      alert("즐겨찾기에서 삭제되었습니다.");
+
+      // ✅ 화면에서 즉시 제거 + 카운트 갱신
+      card.remove();
+      setCount(list.children.length);
     } else {
-      // 없으니 -> 추가 시도
-      const success = await addFavorite(p);
-      if (success) {
-        alert("즐겨찾기에 추가되었습니다!");
-        iconImg.classList.add("active"); // 노란색 변경
-      }
+      alert("삭제에 실패했습니다.");
     }
-  });
+    return;
+  }
+
+  // ✅ 일반 탭: 토글(추가/삭제)
+  const isCurrentlyFav = favIdSet.has(id);
+
+  // 1) 낙관적 UI(즉시 색 유지)
+  if (isCurrentlyFav) {
+    favIdSet.delete(id);
+    iconImg.classList.remove("active");
+  } else {
+    favIdSet.add(id);
+    iconImg.classList.add("active");
+  }
+
+  // 2) 서버 반영 + 실패 시 롤백
+  try {
+    if (isCurrentlyFav) {
+      const ok = await removeFavorite(id);
+      if (!ok) throw new Error("removeFavorite failed");
+      alert("즐겨찾기에서 삭제되었습니다.");
+    } else {
+      const ok = await addFavorite(p);
+      if (!ok) throw new Error("addFavorite failed");
+      alert("즐겨찾기에 추가되었습니다!");
+    }
+  } catch (err) {
+    // 롤백
+    if (isCurrentlyFav) {
+      favIdSet.add(id);
+      iconImg.classList.add("active");
+    } else {
+      favIdSet.delete(id);
+      iconImg.classList.remove("active");
+    }
+    alert("즐겨찾기 처리 실패(네트워크/권한 확인)");
+    console.error(err);
+  }
+});
 
     list.appendChild(card);
   });
@@ -404,6 +489,8 @@ function renderList(places, tab) {
     if (!tab) return;
 
     try {
+    await ensureFavoritesLoaded();
+
     let places = [];
       // ✅ result.js에서 넘어온 데이터가 있으면, 첫 진입 탭에서는 그걸 그대로 쓴다
     const isSelectedTab =
@@ -482,13 +569,26 @@ function renderList(places, tab) {
     const data = await res.json();
     return data?.documents ?? [];
   }
+  
   // RTDB: Realtime Database에서 목록 가져오기
-  async function fetchRtdbList(tab) {
-    const path = tab.rtdbPath; // 예: "restaurants", "cafes", "photos", "activities"
-    const res = await fetch(`${RTDB_BASE}/${path}.json`);
-    if (!res.ok) throw new Error(`RTDB fetch failed: ${res.status}`);
-    return await res.json(); // object(tree)
+async function fetchRtdbList(tab) {
+  const categoryPath = tab.rtdbPath;       // restaurants | cafes | activities | photos
+  const companionKey = getCompanionKey(); // friends | family | couple
+
+  // 1) 권장 구조: /restaurants/family.json
+  const url1 = `${RTDB_BASE}/${categoryPath}/${companionKey}.json`;
+  const r1 = await fetch(url1);
+  if (r1.ok) {
+    const d1 = await r1.json();
+    if (d1) return d1;
   }
+
+  // 2) fallback 구조: /restaurants.json 안에 {family,friends,couple}
+  const url2 = `${RTDB_BASE}/${categoryPath}.json`;
+  const r2 = await fetch(url2);
+  if (!r2.ok) throw new Error(`RTDB fetch failed: ${r2.status}`);
+  return await r2.json();
+}
 
   /***********************
    * 7) normalize: 공통 모델로
@@ -552,36 +652,33 @@ function renderList(places, tab) {
       })
       .filter(Boolean);
   }
+  
   function normalizeRtdb(tree, tab) {
   if (!tree) return [];
 
-  let items = [];
+  const companionKey = getCompanionKey(); // friends|family|couple
 
-  // 네 data.json 구조 기준:
-  // restaurants/cafes는 restaurants.family 아래에 데이터가 있고,
-  // photos/activities는 바로 아래에 아이템이 있음.
-  if (tab.rtdbPath === "restaurants" || tab.rtdbPath === "cafes") {
-    const family = tree.family || {};
-    items = Object.entries(family).map(([id, v]) => ({ id, ...v }));
-  } else {
-    items = Object.entries(tree).map(([id, v]) => ({ id, ...v }));
-  }
+  // tree가 {family,friends,couple}면 해당 버킷으로 내려가고,
+  // 이미 버킷이면 그대로 사용
+  const bucket =
+    (tree.family || tree.friends || tree.couple)
+      ? (tree[companionKey] || tree.family || tree.friends || tree.couple || {})
+      : tree;
 
-  // Place 모델로 변환
-  return items
-    .map(x => {
+  return Object.entries(bucket)
+    .map(([id, x]) => {
       const lat = Number(x.lat);
       const lng = Number(x.lng);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
       return {
-        id: String(x.id ?? x.contentid ?? x.contentId ?? ""), // 데이터에 맞게
+        id: String(x.id ?? x.contentid ?? x.contentId ?? id),
         title: x.title || "",
         lat,
         lng,
         image: x.firstimage || x.firstimage2 || fallbackImg,
         source: "RTDB",
-        raw: x
+        raw: x,
       };
     })
     .filter(Boolean);
@@ -944,32 +1041,106 @@ document.addEventListener("DOMContentLoaded", () => {
       .replaceAll("'", "&#039;");
   }
 
-  function waitForKakaoSDK(timeoutMs = 8000) {
+  function waitForKakaoSDK(timeoutMs = 15000) {
+  console.log("⏳ Kakao SDK 로딩 대기 중...");
+  
   return new Promise((resolve, reject) => {
+    // 이미 로드되어 있으면 바로 resolve
+    if (window.kakao && window.kakao.maps) {
+      console.log("✅ Kakao SDK already loaded");
+      return resolve();
+    }
+
     const start = Date.now();
+    let attempts = 0;
+    
     (function tick() {
-      if (window.kakao && window.kakao.maps && typeof window.kakao.maps.load === "function") {
+      attempts++;
+      
+      if (window.kakao && window.kakao.maps) {
+        console.log(`✅ Kakao SDK loaded (${attempts}번째 시도, ${Date.now() - start}ms)`);
         return resolve();
       }
+      
       if (Date.now() - start > timeoutMs) {
+        console.error(`❌ Kakao SDK timeout (${attempts}번 시도)`);
         return reject(new Error("Kakao SDK not loaded (timeout)"));
       }
-      setTimeout(tick, 50);
+      
+      setTimeout(tick, 200);
     })();
   });
 }
 
-// ✅ 시작
-window.addEventListener("load", async () => {
-  try {
-    await waitForKakaoSDK();
-    initKakaoMap(); // 기존 함수 그대로 사용
-  } catch (e) {
-    console.error(e.message);
-    // 사용자에게도 보이게
-    const mapEl = document.getElementById("map");
-    if (mapEl) {
-      mapEl.innerHTML = `<div style="padding:16px;color:#555">카카오맵 SDK 로드 실패. 네트워크/키/도메인 설정을 확인하세요.</div>`;
-    }
-  }
+window.addEventListener("DOMContentLoaded", async () => {
+await waitForKakaoSDK();
+  initKakaoMap();
 });
+
+/**
+ * [복구] 지역과 카테고리를 받아 데이터를 호출하는 핵심 함수
+ */
+async function fetchPlaces(region, category) {
+  console.log(`🔍 데이터 요청 시작: ${region} > ${category}`);
+  
+  // 1. 기존 리스트 비우고 로딩 표시
+  const listContainer = document.getElementById("list");
+  if (listContainer) {
+    listContainer.innerHTML = '<div class="loading">데이터를 불러오는 중입니다...</div>';
+  }
+
+  // 2. 카카오 장소 검색 실행
+  // region(예: 부산) + category(예: 카페) 조합으로 검색
+  searchKakaoPlaces(`${region} ${category}`);
+
+  // 3. (옵션) 관광공사 API 호출 로직이 서버(SERVER_URL)에 있다면 실행
+  try {
+    const response = await fetch(`${SERVER_URL}?region=${encodeURIComponent(region)}&category=${encodeURIComponent(category)}`);
+    if (response.ok) {
+      const ktoData = await response.json();
+      console.log("✅ KTO 데이터 로드 성공:", ktoData);
+      // 데이터 변환 후 리스트에 추가 (append 모드)
+      if (ktoData && ktoData.length > 0) {
+        renderList(normalizeKto(ktoData), true); 
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ KTO API 호출 실패 또는 구현되지 않음:", err);
+  }
+}
+
+/**
+ * [복구] 카카오 SDK를 이용한 키워드 검색
+ */
+function searchKakaoPlaces(keyword) {
+  if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+    console.error("❌ 카카오 SDK가 로드되지 않았습니다.");
+    return;
+  }
+
+  const ps = new kakao.maps.services.Places();
+  ps.keywordSearch(keyword, (data, status) => {
+    if (status === kakao.maps.services.Status.OK) {
+      console.log("✅ 카카오 검색 성공:", data.length, "건");
+      
+      // 카카오 데이터를 우리 시스템 형식으로 변환
+      const normalizedKakao = data.map(item => ({
+        id: item.id,
+        title: item.place_name,
+        address: item.address_name,
+        lat: parseFloat(item.y),
+        lng: parseFloat(item.x),
+        image: fallbackImg, // 카카오 기본검색은 이미지를 주지 않음
+        source: "kakao"
+      }));
+
+      // 리스트 그리기
+      renderList(normalizedKakao);
+    } else {
+      console.warn("❌ 카카오 검색 결과가 없습니다:", status);
+    }
+  });
+}
+
+// 외부에서 호출할 수 있도록 window 객체에 등록 (중요)
+window.fetchPlaces = fetchPlaces;

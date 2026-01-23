@@ -1,31 +1,77 @@
 body {
   margin: 0;
   height: 100vh;
-  background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
+
+  background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
+  background-size: 300% 300%;
+  animation: bgMove 16s ease infinite;
+
   display: flex;
   justify-content: center;
   align-items: center;
-  color: white;
+
   font-family: 'Noto Sans KR', sans-serif;
+  color: white;
+}
+
+@keyframes bgMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .loading-container {
   text-align: center;
+  padding: 50px 65px;
+  border-radius: 24px;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 25px 50px rgba(0,0,0,0.35);
 }
 
-.loading-img {
-  width: 120px;
-  animation: float 1.8s ease-in-out infinite;
+/* 🎲 아이콘 주사위 */
+.dice {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 28px;
+
+  background: white;
+  border-radius: 22px;
+  box-shadow: 0 18px 35px rgba(0,0,0,0.35);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  animation: shake 0.14s infinite;
 }
 
-.loading-container p {
-  margin-top: 20px;
+.face {
+  font-size: 46px;
+}
+
+/* 흔들림 */
+@keyframes shake {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(4deg); }
+  50% { transform: rotate(0deg); }
+  75% { transform: rotate(-4deg); }
+  100% { transform: rotate(0deg); }
+}
+
+p {
   font-size: 18px;
   opacity: 0.9;
 }
 
-@keyframes float {
-  0% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
-  100% { transform: translateY(0); }
+p::after {
+  content: "";
+  animation: dots 1.4s steps(3, end) infinite;
+}
+
+@keyframes dots {
+  0% { content: ""; }
+  33% { content: "."; }
+  66% { content: ".."; }
+  100% { content: "..."; }
 }

@@ -243,9 +243,7 @@ function renderUserTags(tags) {
   });
 }
 
-// 태그 클릭 핸들러
 function handleTagClick(tag) {
-  // ✅ 아직 데이터 준비 전이면 “없다”가 아니라 “로딩중”이어야 함
   if (!isDataReady) {
     alert("데이터를 불러오는 중입니다. 잠시만 기다려주세요.");
     return;
@@ -253,7 +251,6 @@ function handleTagClick(tag) {
 
   const tagData = filteredPlacesData[tag];
 
-   // ✅ 배열이 아니면 무조건 실패 처리 (length undefined 같은 변칙 방지)
   if (!Array.isArray(tagData) || tagData.length === 0) {
     console.warn("[tag click] no data", { tag, tagData });
     alert("해당 키워드에 맞는 장소가 없습니다.");
@@ -262,11 +259,11 @@ function handleTagClick(tag) {
 
   localStorage.setItem("selectedTag", tag);
   localStorage.setItem("selectedTagData", JSON.stringify(tagData));
+  localStorage.setItem("selectedCompanion", result.companion); // ✅ 이 줄 추가
 
   const categories = [...new Set(
-    userTags.map(t => TAG_TO_TAB[t]).filter(Boolean),"fev"
-  )].join(",");
-
+  [...userTags.map(t => TAG_TO_TAB[t]).filter(Boolean), "fav"]
+)].join(",");
   const url =
     `./render-places.html?tag=${encodeURIComponent(tag)}&categories=${encodeURIComponent(categories)}`;
 
@@ -565,6 +562,27 @@ function updateMainImage(place) {
   };
 }
 
+// 1. 기존 로직이 끝나는 지점 혹은 하단에 추가
+document.addEventListener("DOMContentLoaded", () => {
+  // URL에서 ?region=부산&category=카페 같은 파라미터를 읽어옴
+  const urlParams = new URLSearchParams(window.location.search);
+  const region = urlParams.get("region");
+  const category = urlParams.get("category");
+
+  console.log("URL 파라미터 체크:", { region, category });
+
+  if (region && category) {
+    // 탭 UI를 현재 카테고리에 맞춰 활성화 (render-places.js에 있는 함수)
+    if (typeof renderTabs === "function") {
+      renderTabs(category);
+    }
+    
+    // 핵심: 장소를 불러오는 함수 호출 (이 함수가 Kakao/KTO를 실행해야 함)
+    if (typeof fetchPlaces === "function") {
+      fetchPlaces(region, category);
+    }
+  }
+});
 // ===========================
 // 11. 초기 실행
 // ===========================

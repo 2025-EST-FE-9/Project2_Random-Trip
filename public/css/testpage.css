@@ -1,27 +1,42 @@
+/* ===============================
+   MAIN CONTAINER (배경 핵심)
+================================ */
 #mainContainer {
     width: 100%;
     height: calc(100vh - 80px);
     position: relative;
     overflow: hidden;
+
+    /* 🎨 움직이는 그라데이션 배경 */
+    background: linear-gradient(
+        120deg,
+        #1d2671,
+        #c33764,
+        #1d2671
+    );
+    background-size: 300% 300%;
+    animation: gradientMove 18s ease infinite;
 }
 
-/* 배경 이미지 */
-#mainContainer>img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+/* 배경 애니메이션 */
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
-/* 오버레이 */
+/* ===============================
+   오버레이 (가독성)
+================================ */
 .overlay {
     position: absolute;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
 }
 
-/* 질문 카드 */
+/* ===============================
+   질문 카드
+================================ */
 .qSection {
     position: absolute;
     top: 50%;
@@ -33,13 +48,21 @@
     min-height: 350px;
 
     padding: 40px 50px;
-    background-color: gray;
-    border-radius: 15px;
 
+    /* 카드 느낌 강화 */
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+
+    border-radius: 20px;
     z-index: 10;
-    box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+
+    box-shadow: 0 20px 45px rgba(0,0,0,0.35);
 }
 
+/* ===============================
+   메인 텍스트
+================================ */
 .mainTextWrapper {
     position: absolute;
     top: 50%;
@@ -65,56 +88,67 @@
 }
 
 .delay2 {
+    animation-delay: 0.45s;
     cursor: pointer;
-    padding: 10px;
-    padding-left: 20px;
-    padding-right: 20px;
+    padding: 12px 26px;
+    border-radius: 999px;
+    border: none;
+    background: #ffffff;
+    color: #222;
+    font-weight: 600;
 }
 
+/* ===============================
+   선택 버튼 영역
+================================ */
 #buttons button {
-  padding: 14px 24px;
-  margin: 8px;
-  border-radius: 8px;
-  border: 2px solid rgba(255,255,255,0.6);
-  background: rgba(255,255,255,0.15);
-  color: #fff;
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.25s ease;
+    padding: 14px 24px;
+    margin: 8px;
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.25s ease;
 }
 
-/* hover 효과 */
 #buttons button:hover {
-  background: rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.35);
 }
 
-/* ✅ 선택된 버튼 */
+/* 선택된 버튼 */
 #buttons button.selected {
-  background: #ffcf40;        /* 눈에 띄는 노란색 */
-  color: #222;
-  border-color: #ffcf40;
-  font-weight: 700;
-  transform: scale(1.08);     /* 살짝 커짐 */
-  box-shadow: 0 0 18px rgba(255, 207, 64, 0.8);
+    background: #ffcf40;
+    color: #222;
+    border-color: #ffcf40;
+    font-weight: 700;
+    transform: scale(1.08);
+    box-shadow: 0 0 18px rgba(255, 207, 64, 0.8);
 }
 
-/* 다음 버튼 */
+/* ===============================
+   다음 버튼
+================================ */
 #nextArea button {
-  margin-top: 25px;
-  padding: 14px 40px;
-  font-size: 16px;
-  border-radius: 999px;
-  border: none;
-  background: #ffffff;
-  color: #222;
-  cursor: pointer;
-  transition: 0.25s;
+    margin-top: 25px;
+    padding: 14px 42px;
+    font-size: 16px;
+    border-radius: 999px;
+    border: none;
+    background: #ffffff;
+    color: #222;
+    cursor: pointer;
+    transition: 0.25s;
 }
 
 #nextArea button:hover {
-  background: #ffcf40;
+    background: #ffcf40;
 }
 
+/* ===============================
+   텍스트 등장 애니메이션
+================================ */
 @keyframes slideUp {
     from {
         transform: translateY(40px);
@@ -125,5 +159,3 @@
         opacity: 1;
     }
 }
-
-
