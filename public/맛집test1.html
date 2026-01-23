@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>부산 맛집(블루리본/현지인) 지도+리스트 테스트</title>
+
+  <!-- ✅ 카카오 지도 SDK: JavaScript 키 -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=5d05867b35b14cc63f4747f219d2d3c4&autoload=false"></script>
+
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Arial;background:#fff;color:#111}
+
+    .layout{
+      display:grid;
+      grid-template-rows:auto 320px 1fr;
+      height:100dvh;
+    }
+
+    .topbar{
+      position:sticky;top:0;z-index:10;
+      display:flex;align-items:center;gap:10px;
+      padding:10px 12px;background:#fff;border-bottom:1px solid #eee;
+    }
+
+    .btn{
+      border:1px solid #111;background:#111;color:#fff;
+      padding:8px 12px;border-radius:10px;cursor:pointer;
+      font-size:14px;
+    }
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+
+    .hint{font-size:13px;color:#666;margin-left:auto}
+    #count{font-weight:700;color:#111}
+
+    #map{width:100%;height:100%}
+
+    .list{
+      overflow:auto;padding:12px;
+      display:grid;gap:10px;
+      grid-template-columns:1fr;
+    }
+
+    .card{
+      border:1px solid #eee;border-radius:14px;background:#fff;
+      padding:12px;display:grid;gap:6px;
+      cursor:pointer;
+    }
+    .card:hover{border-color:#ddd}
+    .title{margin:0;font-size:15px;font-weight:800}
+    .meta{margin:0;font-size:13px;color:#555;line-height:1.4}
+    .score{font-size:12px;color:#0d6efd;font-weight:700}
+
+    @media (min-width:1024px){
+      .layout{
+        grid-template-rows:auto 1fr;
+        grid-template-columns:420px 1fr;
+        grid-template-areas:
+          "topbar topbar"
+          "list map";
+      }
+      .topbar{grid-area:topbar}
+      .list{grid-area:list}
+      #map{grid-area:map}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <div class="topbar">
+      <button id="foodBtn" class="btn">맛집(블루리본/현지인)</button>
+      <span class="hint">결과: <span id="count">0</span>개</span>
+    </div>
+
+    <div id="map"></div>
+    <div id="list" class="list"></div>
+  </div>
+
+  <script>
+    // =========================
+    // 설정 (테스트용)
+    // =========================
+    const KAKAO_REST_KEY = "471c92d0653383011795ee4bb2ad52cf"; // ⚠️ 테스트용(서비스에서는 프록시로 숨겨야 함)
+    const BUSAN_CENTER = { lat: 35.1796, lng: 129.0756 };
+
+    // 요구 키워드
+    const QUERIES = [
+      { tag: "블루리본", q: "부산 블루리본 맛집" },
+      { tag: "현지인", q: "부산 현지인 맛집" },
+    ];
+
+    // DOM
+    const foodBtn = document.getElementById("foodBtn");
+    const listEl = document.getElementById("list");
+    const countEl = document.getElementById("count");
+
+    // Map
+    let map;
+    let markers = [];
+    const infoWindow = new kakao.maps.InfoWindow({ zIndex: 2 });
+
+    // =========================
+    // 지도 초기화
+    // =========================
+    kakao.maps.load(() => {
+      map = new kakao.maps.Map(document.getElementById("map"), {
+        center: new kakao.maps.LatLng(BUSAN_CENTER.lat, BUSAN_CENTER.lng),
+        level: 7
+      });
+
+      // 리사이즈 시 relayout(안하면 깨질 수 있음)
+      let t;
+      window.addEventListener("resize", () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          if (!map) return;
+          const c = map.getCenter();
+          map.relayout();
+          map.setCenter(c);
+        }, 100);
+      });
+    });
+
+    // =========================
+    // Kakao Local Search (키워드)
+    // =========================
+    async function kakaoKeywordSearch(query) {
+      const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=15&sort=accuracy`;
+      const res = await fetch(url, {
+        headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` }
+      });
+
+      const text = await res.text();
+      if (!res.ok) throw new Error(`Kakao API ${res.status}: ${text}`);
+
+      return JSON.parse(text).documents || [];
+    }
+
+    // =========================
+    // 중복 제거 + "인기도 대체 점수" 만들기
+    //  - 같은 place가 두 쿼리에서 모두 나오면 score↑
+    //  - 결과 rank가 앞일수록 score↑ (accuracy 기반)
+    // =========================
+    function mergeAndScore(resultsByQuery) {
+      // key = place id (카카오: id)
+      const mapById = new Map();
+
+      for (const { tag, docs } of resultsByQuery) {
+        docs.forEach((d, idx) => {
+          const id = d.id;
+          const baseRankScore = Math.max(0, 20 - idx); // 앞에 있을수록 가산
+
+          if (!mapById.has(id)) {
+            mapById.set(id, {
+              id,
+              place_name: d.place_name,
+              address_name: d.road_address_name || d.address_name,
+              phone: d.phone,
+              x: Number(d.x),
+              y: Number(d.y),
+              place_url: d.place_url,
+              tags: new Set([tag]),
+              score: 0
+            });
+          }
+
+          const item = mapById.get(id);
+          item.tags.add(tag);
+          item.score += baseRankScore;
+        });
+      }
+
+      // 태그가 2개면 보너스(둘 다 잡힌 곳 = 더 “핫”할 확률)
+      const merged = [...mapById.values()].map(it => {
+        const tagBonus = it.tags.size >= 2 ? 30 : 0;
+        return { ...it, score: it.score + tagBonus, tags: [...it.tags] };
+      });
+
+      // score desc 정렬
+      merged.sort((a,b) => b.score - a.score);
+      return merged;
+    }
+
+    // =========================
+    // 지도/리스트 렌더
+    // =========================
+    function clearMarkers() {
+      markers.forEach(m => m.setMap(null));
+      markers = [];
+      infoWindow.close();
+    }
+
+    function renderList(items) {
+      listEl.innerHTML = "";
+      countEl.textContent = String(items.length);
+
+      if (!items.length) {
+        listEl.innerHTML = `<div class="card"><p class="meta">결과가 없습니다.</p></div>`;
+        return;
+      }
+
+      items.forEach((it, idx) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="score">score: ${it.score} / tags: ${it.tags.join(", ")}</div>
+          <h3 class="title">${escapeHtml(it.place_name)}</h3>
+          <p class="meta">${escapeHtml(it.address_name || "주소 없음")}</p>
+          <p class="meta">${it.phone ? escapeHtml(it.phone) : ""}</p>
+          <p class="meta"><a href="${it.place_url}" target="_blank" rel="noreferrer">카카오 상세</a></p>
+        `;
+
+        card.addEventListener("click", () => {
+          const pos = new kakao.maps.LatLng(it.y, it.x);
+          map.panTo(pos);
+          openInfo(it, pos);
+        });
+
+        listEl.appendChild(card);
+      });
+    }
+
+    function renderMarkers(items) {
+      clearMarkers();
+
+      const bounds = new kakao.maps.LatLngBounds();
+
+      items.forEach((it) => {
+        if (!Number.isFinite(it.x) || !Number.isFinite(it.y)) return;
+
+        const pos = new kakao.maps.LatLng(it.y, it.x);
+        bounds.extend(pos);
+
+        const marker = new kakao.maps.Marker({ map, position: pos });
+        markers.push(marker);
+
+        kakao.maps.event.addListener(marker, "click", () => {
+          openInfo(it, pos);
+        });
+      });
+
+      // 결과가 있으면 범위 맞추기
+      if (items.length) map.setBounds(bounds);
+    }
+
+    function openInfo(it, pos) {
+      const html = `
+        <div style="padding:8px 10px;max-width:240px">
+          <div style="font-weight:800;margin-bottom:4px">${escapeHtml(it.place_name)}</div>
+          <div style="font-size:12px;color:#555;line-height:1.3">${escapeHtml(it.address_name || "")}</div>
+          <div style="font-size:12px;color:#0d6efd;font-weight:700;margin-top:4px">score: ${it.score} (${it.tags.join(", ")})</div>
+        </div>`;
+      infoWindow.setContent(html);
+      infoWindow.setPosition(pos);
+      infoWindow.open(map);
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    // =========================
+    // 버튼 클릭: 맛집 로드
+    // =========================
+    foodBtn.addEventListener("click", async () => {
+      try {
+        foodBtn.disabled = true;
+        listEl.innerHTML = `<div class="card"><p class="meta">불러오는 중...</p></div>`;
+
+        // 2개 쿼리 병렬 호출
+        const resultsByQuery = await Promise.all(
+          QUERIES.map(async (q) => {
+            const docs = await kakaoKeywordSearch(q.q);
+            return { tag: q.tag, docs };
+          })
+        );
+
+        const merged = mergeAndScore(resultsByQuery);
+
+        renderList(merged);
+        renderMarkers(merged);
+
+      } catch (e) {
+        console.error(e);
+        listEl.innerHTML = `<div class="card"><p class="meta">에러: ${escapeHtml(e.message)}</p></div>`;
+      } finally {
+        foodBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

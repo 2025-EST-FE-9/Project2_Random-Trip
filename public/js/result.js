@@ -1,9 +1,8 @@
-/*
-버튼 클릭하면 result3.html로 이동하게되어있는데, result3.html은 임시이름이라 알아서 수정해주세요.
+
+//버튼 클릭하면 result3.html로 이동하게되어있는데, result3.html은 임시이름이라 알아서 수정해주세요.
 const tag = localStorage.getItem("selectedTag");
 const places = JSON.parse(localStorage.getItem("selectedTagData"));
-*/
-
+let isDataReady = false;
 
 
 // ===========================
@@ -20,7 +19,7 @@ const themeMap = {
   culture: "관광지",
   food: "맛집",
   cafe: "카페",
-  photo: "포토존",
+  photo: "인생샷",
   activity: "액티비티"
 };
 
@@ -32,7 +31,16 @@ const contentTypeMap = {
   activity: "28"    // 레포츠
   // photo는 contentTypeId가 없으므로 키워드로 필터링
 };
-
+const TAG_TO_TAB = {
+  culture: "tour",
+  photo: "photo",
+  activity: "activity",
+  food: "food",
+  cafe: "cafe",
+  mountain: "tour",
+  ocean: "tour",
+  city: "tour",
+};
 // 음식점(39) 내에서 세부 구분을 위한 키워드
 const foodSubKeywords = {
   cafe: [
@@ -224,7 +232,10 @@ function renderUserTags(tags) {
     
     // 클릭 이벤트 추가
     div.style.cursor = "pointer";
-    div.addEventListener("click", () => {
+    div.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation(); // 중복 핸들러까지 차단
       handleTagClick(tag);
     });
     
@@ -234,19 +245,40 @@ function renderUserTags(tags) {
 
 // 태그 클릭 핸들러
 function handleTagClick(tag) {
+  // ✅ 아직 데이터 준비 전이면 “없다”가 아니라 “로딩중”이어야 함
+  if (!isDataReady) {
+    alert("데이터를 불러오는 중입니다. 잠시만 기다려주세요.");
+    return;
+  }
+
   const tagData = filteredPlacesData[tag];
-  
-  if (!tagData || tagData.length === 0) {
+
+   // ✅ 배열이 아니면 무조건 실패 처리 (length undefined 같은 변칙 방지)
+  if (!Array.isArray(tagData) || tagData.length === 0) {
+    console.warn("[tag click] no data", { tag, tagData });
     alert("해당 키워드에 맞는 장소가 없습니다.");
     return;
   }
-  
-  // 데이터를 localStorage에 저장
+
   localStorage.setItem("selectedTag", tag);
   localStorage.setItem("selectedTagData", JSON.stringify(tagData));
-  
-  // 다음 페이지로 이동
-  location.href = "result3.html";
+
+  const categories = [...new Set(
+    userTags.map(t => TAG_TO_TAB[t]).filter(Boolean),"fev"
+  )].join(",");
+
+  const url =
+    `./render-places.html?tag=${encodeURIComponent(tag)}&categories=${encodeURIComponent(categories)}`;
+
+  // ✅ 저장 검증(선택): 혹시 다른 코드가 localStorage를 지우는 경우 방어
+  const saved = localStorage.getItem("selectedTagData");
+  if (!saved || saved === "null" || saved === "[]") {
+    console.error("[tag click] localStorage save failed", { tag, saved });
+    alert("데이터 저장에 실패했습니다. 다시 시도해주세요.");
+    return;
+  }
+
+  location.href = url;
 }
 
 // ===========================
@@ -281,7 +313,7 @@ function filterByContentType(places, userThemes) {
     
     if (contentTypeId) {
       let matched = places.filter(place => 
-        place.contenttypeid === contentTypeId
+        String(place.contenttypeid) === String(contentTypeId)
       );
       
       if (contentTypeId === "39") {
@@ -469,6 +501,12 @@ function renderRandomResults(filtered) {
   
   // 태그별로 데이터 분류
   organizeDataByTag(randomized);
+  isDataReady = true;
+
+  console.log("[READY] keys:", Object.keys(filteredPlacesData));
+  console.log("[READY] counts:", Object.fromEntries(
+    Object.entries(filteredPlacesData).map(([k,v]) => [k, Array.isArray(v) ? v.length : -1])
+  ));
 }
 
 // 태그별 데이터 분류 함수
@@ -481,7 +519,7 @@ function organizeDataByTag(places) {
       filteredPlacesData[tag] = places.filter(place => {
         const contentTypeId = contentTypeMap[tag];
         if (contentTypeId) {
-          return place.contenttypeid === contentTypeId;
+          return String(place.contenttypeid) === String(contentTypeId);
         } else {
           if (!place.tags) place.tags = generateTags(place);
           return place.tags.includes(tag);
@@ -502,6 +540,9 @@ function organizeDataByTag(places) {
     console.log(`${tagName}: ${data.length}개`);
   });
 }
+console.log("isDataReady:", isDataReady);
+console.log("filteredPlacesData keys:", Object.keys(filteredPlacesData));
+console.log("counts:", Object.fromEntries(Object.entries(filteredPlacesData).map(([k,v]) => [k, v.length])));
 
 // ===========================
 // 10. 메인 이미지 업데이트
@@ -516,10 +557,10 @@ function updateMainImage(place) {
   }
 
   // 부산 대표 이미지 고정
-  mainImg.src = "/IMG/busan_main.jpg";
+  mainImg.src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTq4OUIayinHG3aAqJyWT8L4AkdGZxM7-rLkA&s";
   mainImg.alt = "부산 여행";
   mainImg.onerror = function() {
-    this.src = "/IMG/travel.jpg";
+    this.src = "./IMG/travel.jpg";
     console.warn("부산 이미지 로딩 실패");
   };
 }

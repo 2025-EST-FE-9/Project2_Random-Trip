@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>한국관광 API 테스트</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background-color: #f4f4f4; }
+    #container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+    .card { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .card img { width: 100%; height: 200px; object-fit: cover; background-color: #ddd; }
+    .card-content { padding: 15px; }
+    .card-title { font-size: 1.1em; font-weight: 800; margin-bottom: 8px; color: #333; }
+
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .addr-strong { font-size: 0.95em; color: #444; margin-bottom: 4px; }
+    .addr-full { font-size: 0.88em; color: #777; margin-bottom: 8px; }
+
+    .pills { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 8px; }
+    .pill { font-size: 0.82em; background: #f1f5f9; color: #0f172a; padding: 4px 8px; border-radius: 999px; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    .link { font-size: 0.85em; color: #0d6efd; text-decoration: none; }
+    .link:hover { text-decoration: underline; }
+
+    .btn {
+      font-size: 0.82em; border: 1px solid #ddd; background: #fff; color: #111;
+      padding: 5px 8px; border-radius: 8px; cursor: pointer;
+    }
+    .btn:hover { border-color: #aaa; }
+
+    .card-tags { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag { font-size: 0.82em; background: #eef2ff; color: #2f3a8f; padding: 4px 8px; border-radius: 999px; }
+  </style>
+</head>
+<body>
+
+  <h1>🇰🇷 국내 관광지 리스트 (areaBasedList2)</h1>
+  <p style="color:#555;margin-top:-6px;">
+    (추가 호출 0) 이미지/거리/주소강조/해시태그 + <b>카카오맵 링크</b> + <b>좌표 복사</b>
+  </p>
+
+  <div id="container">
+    <p>데이터를 불러오는 중입니다. 잠시만 기다려주세요...</p>
+  </div>
+
+  <template id="cardTpl">
+    <div class="card">
+      <img class="img" src="" alt="관광지 이미지">
+      <div class="card-content">
+        <div class="card-title"></div>
+
+        <div class="addr-strong"></div>
+        <div class="addr-full"></div>
+
+        <div class="pills">
+          <span class="pill dist"></span>
+          <span class="pill coord"></span>
+        </div>
+
+        <div class="actions">
+          <a class="link mapLink" target="_blank" rel="noreferrer">카카오맵에서 보기</a>
+          <button class="btn copyBtn" type="button">좌표 복사</button>
+        </div>
+
+        <div class="card-tags"></div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    async function fetchTourData() {
+      const container = document.getElementById("container");
+      const tpl = document.getElementById("cardTpl");
+
+      const API_KEY = "2fcc44b4d99263a5f44b3e7867fa1eddaec3261ce6f04843d005ee3c7c2d10b7";
+
+      const url =
+        "https://apis.data.go.kr/B551011/KorService2/areaBasedList2"
+        + "?serviceKey=" + encodeURIComponent(API_KEY)
+        + "&numOfRows=10&pageNo=1&MobileOS=ETC&MobileApp=AppTest&_type=json"
+        + "&areaCode=1"
+        + "&contentTypeId=12";
+
+      // ✅ 중심: 내 위치 우선, 실패하면 서울 시청
+      const fallbackCenter = { lat: 37.5665, lng: 126.9780 };
+      const userCenter = await getUserLocation().catch(() => null);
+      const center = userCenter ?? fallbackCenter;
+
+      try {
+        const response = await fetch(url);
+        const raw = await response.text();
+
+        if (!response.ok) {
+          container.innerHTML = `
+            <p style="color:red;">
+              HTTP ${response.status} 로 실패.<br>
+              응답 앞부분: <pre>${escapeHtml(raw.slice(0, 300))}</pre>
+            </p>`;
+          return;
+        }
+
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          container.innerHTML = `
+            <p style="color:red;">
+              JSON 파싱 실패(응답이 JSON이 아님).<br>
+              응답 앞부분: <pre>${escapeHtml(raw.slice(0, 300))}</pre>
+            </p>`;
+          return;
+        }
+
+        const items = data.response?.body?.items?.item;
+        if (!items) {
+          const msg = data.response?.header?.resultMsg || "데이터 없음";
+          container.innerHTML = `<p>데이터가 없습니다. (메시지: ${escapeHtml(msg)})</p>`;
+          return;
+        }
+
+        container.innerHTML = "";
+        const list = Array.isArray(items) ? items : [items];
+
+        list.forEach((item, idx) => {
+          const clone = tpl.content.cloneNode(true);
+
+          // 이미지
+          clone.querySelector(".img").src =
+            item.firstimage || item.firstimage2 || `https://picsum.photos/600/400?random=${idx}`;
+
+          // 제목
+          clone.querySelector(".card-title").innerText = item.title || "(제목 없음)";
+
+          // 주소 강조(구/동) + 전체 주소
+          const { short, full } = formatAddress(item.addr1, item.addr2);
+          clone.querySelector(".addr-strong").innerText = short ? `📍 ${short}` : "📍 주소 정보 없음";
+          clone.querySelector(".addr-full").innerText = full ? full : "";
+
+          // 좌표
+          const lat = Number(item.mapy);
+          const lng = Number(item.mapx);
+
+          // 거리 뱃지
+          const distEl = clone.querySelector(".dist");
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            const km = haversineKm(center.lat, center.lng, lat, lng);
+            distEl.textContent = userCenter ? `내 위치에서 ${km.toFixed(1)}km` : `중심에서 ${km.toFixed(1)}km`;
+          } else {
+            distEl.textContent = "거리 정보 없음";
+          }
+
+          // ✅ 추가 1) 카카오맵 링크(좌표 기반)
+          const mapLinkEl = clone.querySelector(".mapLink");
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            mapLinkEl.href = `https://map.kakao.com/link/map/${encodeURIComponent(item.title || "관광지")},${lat},${lng}`;
+          } else {
+            mapLinkEl.href = "#";
+            mapLinkEl.textContent = "지도 링크 없음";
+            mapLinkEl.style.pointerEvents = "none";
+            mapLinkEl.style.opacity = "0.5";
+          }
+
+          // ✅ 추가 2) 좌표 표시 + 복사 버튼
+          const coordEl = clone.querySelector(".coord");
+          const copyBtn = clone.querySelector(".copyBtn");
+
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            coordEl.textContent = `좌표 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            copyBtn.addEventListener("click", async () => {
+              const text = `${lat},${lng}`;
+              try {
+                await navigator.clipboard.writeText(text);
+                copyBtn.textContent = "복사됨!";
+                setTimeout(() => (copyBtn.textContent = "좌표 복사"), 900);
+              } catch {
+                // 클립보드 권한 실패 fallback
+                alert(`복사 실패. 수동으로 복사하세요: ${text}`);
+              }
+            });
+          } else {
+            coordEl.textContent = "좌표 없음";
+            copyBtn.disabled = true;
+            copyBtn.style.opacity = "0.5";
+            copyBtn.style.cursor = "not-allowed";
+          }
+
+          // 해시태그(고도화: 지역+관광지+사진)
+          const tags = generateHashtags(item);
+          const tagsEl = clone.querySelector(".card-tags");
+          tagsEl.innerHTML = tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+
+          container.appendChild(clone);
+        });
+
+      } catch (error) {
+        console.error("에러 발생:", error);
+        container.innerHTML = `<p style="color:red;">오류 발생: ${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    // ---------- 유틸 ----------
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function getUserLocation() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error("Geolocation not supported"));
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          (err) => reject(err),
+          { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
+        );
+      });
+    }
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = deg2rad(lat2 - lat1);
+      const dLon = deg2rad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function deg2rad(d) {
+      return d * (Math.PI / 180);
+    }
+
+    // addr1/addr2에서 구/동 강조
+    function formatAddress(addr1 = "", addr2 = "") {
+      const full = [addr1, addr2].filter(Boolean).join(" ");
+      const parts = addr1.trim().split(/\s+/).filter(Boolean);
+
+      // 예: "서울특별시 중구 세종대로 ..." -> "중구 • 세종대로" 정도
+      let gu = "";
+      let dong = "";
+
+      // parts에서 끝이 "구/군/시" 같은 토큰 찾기
+      for (const p of parts) {
+        if (!gu && /구$|군$|시$/u.test(p)) gu = p;
+        if (!dong && /동$|읍$|면$/u.test(p)) dong = p;
+      }
+
+      const short = [gu, dong].filter(Boolean).join(" • ");
+      return { short, full };
+    }
+
+    function extractRegionHashtags(addr1 = "") {
+      const parts = addr1.trim().split(/\s+/).filter(Boolean);
+      const tags = [];
+      if (parts[0]) tags.push("#" + normalizeTag(parts[0]));
+      if (parts[1]) tags.push("#" + normalizeTag(parts[1]));
+      return tags;
+    }
+
+    function normalizeTag(s) {
+      return String(s)
+        .replace(/[^\p{L}\p{N}]+/gu, "")
+        .replace(/특별시|광역시|자치시|자치도|도|시|군|구$/u, "");
+    }
+
+    function generateHashtags(item) {
+      const tags = new Set();
+
+      if (item.title) tags.add("#" + normalizeTag(item.title));
+      extractRegionHashtags(item.addr1).forEach(t => tags.add(t));
+      tags.add("#관광지");
+
+      if (item.firstimage || item.firstimage2) tags.add("#사진");
+      if ((item.title || "").includes("공원") || (item.addr1 || "").includes("공원")) tags.add("#산책");
+
+      const cleaned = [...tags].filter(t => t.length > 1 && t.length <= 15);
+      return cleaned.slice(0, 6);
+    }
+
+    fetchTourData();
+  </script>
+</body>
+</html>

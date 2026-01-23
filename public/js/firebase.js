@@ -10,7 +10,7 @@ import {
   getDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// 🔴 여기에 아까 복사한 본인의 설정값을 넣으세요!
+//형민 firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDMjrnoxiiQlHc2T_8ciDcC9oclxAKHmbE",
     authDomain: "minnn-b3651.firebaseapp.com",

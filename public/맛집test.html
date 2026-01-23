@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TAB_CONFIG 입력 테스트</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <h1>맛집/카페 키워드 입력 테스트</h1>
+
+    <section class="panel">
+      <div class="tabs" id="tabs"></div>
+
+      <div class="form">
+        <label class="label" for="q">추가 키워드(선택)</label>
+        <input id="q" class="input" placeholder="예: 광안리, 오션뷰, 조용한..." />
+
+        <button id="searchBtn" class="btn">출력(테스트)</button>
+        <p class="hint">
+          현재 선택 탭의 기본 searchKeywords + 입력한 키워드를 합쳐서 아래에 출력합니다.
+        </p>
+      </div>
+    </section>
+
+    <section class="result">
+      <div class="result__top">
+        <h2 id="resultTitle">결과</h2>
+        <span class="badge" id="badge">0개</span>
+      </div>
+      <ul id="resultList" class="list"></ul>
+    </section>
+  </main>
+
+  <script>
+    // 네가 준 TAB_CONFIG 그대로 사용
+const TAB_CONFIG = [
+  { key: "tour", label: "관광지", source: "KTO", contentTypeId: 12 },
+  {
+    key: "food",
+    label: "맛집",
+    source: "KAKAO",
+    searchKeywords: ["블루리본 맛집", "줄서는 식당", "현지인 맛집"],
+  },
+  {
+    key: "cafe",
+    label: "카페",
+    source: "KAKAO",
+    searchKeywords: ["디저트 맛집", "뷰 맛집 카페", "인스타 감성 카페"],
+  },
+  {
+    key: "healing",
+    label: "힐링",
+    source: "KTO",
+    contentTypeId: 12,
+    searchKeywords: ["숲길", "산책로", "수목원"],
+  },
+];
+
+const tabsEl = document.getElementById("tabs");
+const qEl = document.getElementById("q");
+const searchBtn = document.getElementById("searchBtn");
+
+const resultTitleEl = document.getElementById("resultTitle");
+const badgeEl = document.getElementById("badge");
+const resultListEl = document.getElementById("resultList");
+
+let activeKey = "food"; // 기본은 맛집으로 시작
+
+function renderTabs() {
+  tabsEl.innerHTML = "";
+
+  TAB_CONFIG.forEach((t) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab" + (t.key === activeKey ? " active" : "");
+    btn.textContent = `${t.label}`;
+
+    btn.addEventListener("click", () => {
+      activeKey = t.key;
+      renderTabs();
+      // 탭 바꾸면 결과 초기화(선택)
+      renderResult([], `${t.label} 결과`);
+    });
+
+    tabsEl.appendChild(btn);
+  });
+}
+
+function getActiveTab() {
+  return TAB_CONFIG.find((t) => t.key === activeKey) || TAB_CONFIG[0];
+}
+
+// "테스트 출력"용: 기본 키워드 + 입력 키워드 결합
+function buildKeywords(tab, userInput) {
+  const base = Array.isArray(tab.searchKeywords) ? tab.searchKeywords : [];
+  const extra = userInput.trim() ? [userInput.trim()] : [];
+  return [...base, ...extra];
+}
+
+function renderResult(keywords, title) {
+  resultTitleEl.textContent = title;
+  badgeEl.textContent = `${keywords.length}개`;
+  resultListEl.innerHTML = "";
+
+  if (!keywords.length) {
+    const li = document.createElement("li");
+    li.className = "item";
+    li.innerHTML = `<p class="item__m">출력할 키워드가 없습니다.</p>`;
+    resultListEl.appendChild(li);
+    return;
+  }
+
+  keywords.forEach((k, i) => {
+    const li = document.createElement("li");
+    li.className = "item";
+    li.innerHTML = `
+      <p class="item__k">${i + 1}. ${escapeHtml(k)}</p>
+      <p class="item__m">source: ${escapeHtml(getActiveTab().source)} / tab: ${escapeHtml(getActiveTab().label)}</p>
+    `;
+    resultListEl.appendChild(li);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+searchBtn.addEventListener("click", () => {
+  const tab = getActiveTab();
+
+  // 이 테스트는 "맛집/카페 입력 받기" 목적이므로
+  // KAKAO 탭이 아니면 안내만 띄움(원하면 제거 가능)
+  if (tab.source !== "KAKAO") {
+    renderResult([], `${tab.label} 탭은 현재 테스트 대상이 아님 (KAKAO만)`);
+    return;
+  }
+
+  const userInput = qEl.value;
+  const keywords = buildKeywords(tab, userInput);
+
+  // 콘솔에도 확인 가능
+  console.log("[TEST] activeTab:", tab);
+  console.log("[TEST] keywords:", keywords);
+
+  renderResult(keywords, `${tab.label} 키워드 출력 결과`);
+});
+
+// 초기 렌더
+renderTabs();
+renderResult([], "결과");
+
+  </script>
+</body>
+</html>

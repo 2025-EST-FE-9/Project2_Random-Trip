@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>추천 결과</title>
+  <link rel="stylesheet" href="./css/reults.css" />
+  <link rel="stylesheet" href="./css/common.css" />
+  <link rel="stylesheet" href="./css/pubHeader.css" />
+  <!-- <link rel="stylesheet" href="./css/style.css"> -->
+
+
+  <!-- Kakao Maps JS SDK + Places(services) -->
+  <!-- <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=5d05867b35b14cc63f4747f219d2d3c4"></script> -->
+ <!-- <script defer src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=1092f86631d9b004bd834c6ff58579b8&libraries=services"></script> -->
+ <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=5d05867b35b14cc63f4747f219d2d3c4&autoload=false&libraries=services"></script>
+ 
+ <!-- <script defer src="js/results.js"></script> -->
+</head>
+<body>
+  <header>
+    <div id="headerContainer">
+      <div id="headerHomeBtn">
+          <a href="main.html">
+              <img src="IMG/rogo.png" alt="">
+          </a>
+      </div>
+
+      <div id="headerBtns">
+          <button>즐겨찾기</button>
+          <button>로그인</button>
+          <button>회원가입</button>
+      </div>
+    </div>
+    </header>
+  <main class="page">
+    <!-- 랜덤 지역 정보 -->
+    <section class="info">
+      <div class="info__title" id="regionTitle">부산(랜덤 데이터 가져오기)</div>
+      <div class="info__sub" id="regionSub">카테고리를 선택하면 지도/목록이 바뀝니다</div>
+    </section>
+
+    <!-- 랜덤 결과 카테고리 박스 -->
+    <nav class="tabs" id="tabs" aria-label="추천 카테고리">카테고리</nav>
+
+    <!-- 지도 -->
+    <section class="mapWrap">
+      <div id="map" class="map" ></div>
+      <div class="badge" id="countBadge">0개</div>
+    </section>
+
+    <!-- 카드 리스트 -->
+    <section class="cards">
+      <div class="cards__head">
+        <h2 class="cards__title" id="listTitle">목록</h2>
+        <div class="cards__hint" id="hint">지도 마커 또는 카드를 클릭하세요</div>
+      </div>
+
+      <div class="track" id="track"></div>
+    </section>
+
+    <div class="cardContainer" id="list"></div>
+
+    <!-- 모달 -->
+    <div class="modal-bg" id="modal">
+      <div class="modal">
+        <!-- 닫기 아이콘 -->
+        <button class="modal-close" id="closeBtn">
+          <img src="./IMG/close2.png" alt="닫기">
+        </button>
+
+        <div class="slider" id="slider"></div>
+        <div class="modal-body">
+          <h2 id="mTitle"></h2>
+          <p id="mDesc">불러오는 중입니다...</p>
+          <div class="tags" id="mTags"></div>
+        </div>
+      </div>
+    </div>
+  
+
+<script>
+  const BUSAN = { lat: 35.1795543, lng: 129.0756416 };
+  const SERVER_URL = "http://localhost:3000/api/busan"; // 프록시 서버 주소
+  // DOM
+  const tabs = document.getElementById("tabs"); // 랜덤 결과 카테고리 박스
+  const track = document.getElementById("track"); // 불러온 리스트 목록
+  const badge = document.getElementById("countBadge");  // 불러온 리스트 개수
+  const listTitle = document.getElementById("listTitle"); //카드목록
+  // const tpl = document.getElementById("cardTpl"); // 카드 템플릿
+  const fallbackImg = "https://placehold.co/400x260?text=No+Image";
+
+
+  const list = document.getElementById("list");
+  const modal = document.getElementById("modal");
+  const slider = document.getElementById("slider");
+  const mTitle = document.getElementById("mTitle");
+  const mDesc = document.getElementById("mDesc");
+  const mTags = document.getElementById("mTags");
+
+  let map;
+  let markers = [];
+  let activeKey = "tour";
+
+  const CONTENT = {
+    // 한국관광공사
+    KTO: {
+      TOUR: 12,      // 관광지
+      ACTIVITY: 28,  // 레포츠
+      CULTURE: 14    // 문화시설
+    },
+    // 카카오
+    KAKAO: {
+      FOOD: "FD6",   // 음식점
+      CAFE: "CE7",   // 카페
+      PARK: "PK6"    // 주차장 (가족 여행 시 유용)
+    }
+  };
+
+  // 탭 UI  예시이므로 나머지 카테고리 추가
+  // =========================
+  const TAB_CONFIG = [
+    { 
+      key: "tour", 
+      label: "관광지", 
+      source: "KTO", // 한국관광공사 API 사용
+      contentTypeId: CONTENT.KTO.TOUR // 관광지
+    },
+    { 
+      key: "food", 
+      label: "맛집", 
+      source: "KAKAO",
+      // getQuery: (regionName) => `${regionName} 줄서는 식당`, 
+      sort: "popularity", // 인기순으로 정렬해서 음식점이 아닌 맛집으로 
+      categoryGroupCode: CONTENT.KAKAO.FOOD, // 음식점
+      searchKeywords: ["맛집", "블루리본", "줄서는 식당", "현지인 맛집"]
+    },
+    { 
+      key: "cafe", 
+      label: "카페", 
+      source: "KAKAO",
+      sort: "popularity",
+      categoryGroupCode: CONTENT.KAKAO.CAFE ,// 카페
+      searchKeywords: ["디저트 맛집", "뷰 맛집 카페", "인스타 감성 카페"]
+    },
+    { 
+      key: "healing", 
+      label: "힐링", 
+      source: "KTO", 
+      contentTypeId: CONTENT.KTO.TOUR,
+      cat1: "A01", // 대분류: 자연 (자연 속에서 즐기는 힐링)
+      keywordFilter: ["숲", "공원", "수목원", "산책"]
+    },
+    { 
+      key: "photo", 
+      label: "인생샷", 
+      source: "KTO", 
+      contentTypeId: CONTENT.KTO.TOUR,
+      arrange: "P", // 인기순 (인기 많은 곳이 사진 찍기 좋음)
+      keywordFilter: ["벽화", "전망대", "야경", "포토존"]
+    },
+    { 
+      key: "activity", 
+      label: "액티비티", 
+      source: "KTO", 
+      contentTypeId: CONTENT.KTO.ACTIVITY // 레포츠
+    },
+    { 
+      key: "fav", 
+      label: "즐겨찾기", 
+      source: "FAV"
+    }
+  ];
+
+  // 지도 초기화
+  // =========================
+  
+  function initKakaoMap() {
+    if (!window.kakao || !kakao.maps) {
+      console.error("Kakao SDK not loaded");
+      return;
+    }
+
+     kakao.maps.load(() => {
+      console.log("LatLng after load:", kakao.maps.LatLng); // 여기서는 function 나와야 정상
+
+      const container = document.getElementById("map");
+      const options = {
+        center: new kakao.maps.LatLng(BUSAN.lat, BUSAN.lng),
+        level: 7,
+      };
+
+      map = new kakao.maps.Map(container, options);
+      console.log("kakao:", window.kakao);
+      console.log("kakao.maps:", window.kakao?.maps);
+      console.log("LatLng:", window.kakao?.maps?.LatLng);
+
+      loadData();
+      renderTabs();
+    });
+  }
+
+  // 받아온 데이터 카테고리
+  function renderTabs() {
+    tabs.innerHTML = ""; 
+    //관광지, 맛집, 카페, 힐링 반복
+    TAB_CONFIG.forEach(t => {
+      const btn = document.createElement("button");
+      //현재 선택된 탭이면 'active' 클래스를 붙여서 강조
+      btn.className = "tab" + (t.key === activeKey ? " active" : "");
+      btn.textContent = t.label; //버튼 내용
+
+      btn.addEventListener("click", () => {
+        activeKey = t.key;        //선택된 키 저장
+        renderTabs();               // 클릭한 버튼을 active로 바꾸기
+        // loadAndRender(activeKey);   // 선택한 테마 API에서 불러와 지도에 표시
+      });
+
+      tabs.appendChild(btn);
+      // console.log(tabs);
+      
+    });
+  }
+
+  // 렌더링 (지도 마커 + 카드)
+  // =========================
+  function clearMarkers() {
+    markers.forEach(m => m.setMap(null));
+    markers = [];
+  }
+  function setCount(n) {
+    badge.textContent = `${n}개`;
+  }
+
+  function renderPlaces(places, titleText) {
+    clearMarkers();
+    // track.innerHTML = "";
+    listTitle.textContent = titleText;
+    setCount(places.length);
+
+    if (!places.length) {
+      track.textContent = "결과가 없습니다.";
+      return;
+    }
+  
+     const bounds = new kakao.maps.LatLngBounds();
+
+  places.forEach((p) => {
+    // TourAPI: mapx(경도), mapy(위도)
+    const lat = Number(p.mapy);
+    const lng = Number(p.mapx);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const pos = new kakao.maps.LatLng(lat, lng);
+
+    const marker = new kakao.maps.Marker({ map, position: pos });
+    markers.push(marker);
+
+    bounds.extend(pos);
+
+    // 마커 클릭하면 모달 열기 (카드와 동일 UX)
+    kakao.maps.event.addListener(marker, "click", () => {
+      openModal(p.contentid, p.title);
+    });
+  });
+  // 마커가 1개 이상이면 화면을 마커 영역에 맞춤
+    if (!bounds.isEmpty()) {
+      map.setBounds(bounds);
+    }   
+  } 
+
+
+  /* 카드 불러오기 */
+  function loadData() {
+    fetch(SERVER_URL)
+      .then(res => res.json())
+      .then(data => {
+          // API 응답 구조에 따라 데이터 접근 (item 추출)
+          const items = data.response.body.items.item;
+          if(!items) return;
+
+          renderPlaces(items, "관광지");
+          console.log(items.slice(0, 5).map(i => ({ title: i.title, mapx: i.mapx, mapy: i.mapy })));
+
+          list.innerHTML = ""; // 초기화
+          items.forEach(item => {
+            const card = document.createElement("div");
+            // const fallbackImg = "./IMG/no-image.png";
+            card.className = "card";
+            card.innerHTML = `
+              <img src="${item.firstimage || item.firstimage2 ||fallbackImg}" class="card-bg">
+              <div class="overlay">
+                <div class="icon-box">
+                  <img src="./IMG/wishlist2.png" class="icon">
+                </div>
+                <h3>${item.title}</h3>
+                <div class="tags">
+                  <span class="tag">#부산</span>
+                  <span class="tag">#관광지</span>
+                </div>
+              </div>
+            `;
+            card.onclick = () => openModal(item.contentid, item.title);
+            list.appendChild(card);
+        });
+      })
+    .catch(err => console.error("서버에서 데이터를 가져오는데 실패했습니다:", err));
+  }
+
+
+  /* 모달 열기 */
+  const API_BASE = "http://localhost:3000";
+
+  function openModal(contentid,title){
+     console.log("openModal contentid:", contentid);
+
+    modal.style.display="flex";
+    slider.innerHTML="";
+    mTitle.innerText=title;
+    mDesc.innerText="불러오는 중입니다...";
+    mTags.innerHTML=`<span class="tag">#부산</span><span class="tag">#관광지</span>`;
+
+    fetch(`${API_BASE}/api/tour/detailCommon?contentId=${contentid}`)
+      .then(r => r.json())
+      .then(d => {
+        console.log("detailCommon resp:", d);
+        mDesc.innerText = d.overview || "상세 설명 없음";
+      })
+      .catch((e) => {
+        console.error("detailCommon error:", e);
+        mDesc.innerText = "상세 설명을 불러오지 못했습니다.";
+      });
+
+    // 이미지
+    fetch(`${API_BASE}/api/tour/detailImage?contentId=${contentid}`)
+      .then(r => r.json())
+      .then(imgs => {
+        console.log("detailImage resp:", imgs);
+        slider.innerHTML = "";
+
+        if (!Array.isArray(imgs) || imgs.length === 0) {
+        slider.innerHTML = `<img src="${fallbackImg}">`;
+        return;
+      }
+
+        imgs.slice(0,4).forEach(i=>{
+        if (i?.originimgurl) {
+          slider.innerHTML += `<img src="${i.originimgurl}">`;
+        }
+      });
+
+      if (!slider.innerHTML) {
+        slider.innerHTML = `<img src="${fallbackImg}">`;
+      }
+    })
+    .catch((e) => {
+      console.error("detailImage error:", e);
+      slider.innerHTML = `<img src="${fallbackImg}">`;
+    });
+   
+  }
+
+  // 닫기
+  document.getElementById("closeBtn").onclick=()=>{
+    modal.style.display="none";
+  };
+  modal.onclick=e=>{
+    if(e.target===modal) modal.style.display="none";
+  };
+
+window.onload = () => {
+    initKakaoMap();
+  }
+
+</script>
+</body>
+</html>
