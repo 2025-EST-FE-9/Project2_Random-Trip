@@ -13,21 +13,8 @@
 </head>
 
 <body>
-  <header>
-    <div id="headerContainer">
-      <div id="headerHomeBtn">
-        <a href="./main.html">
-          <img src="./IMG/rogo.png" alt="">
-        </a>
-      </div>
-
-      <div id="headerBtns">
-        <button>즐겨찾기</button>
-        <button>로그인</button>
-        <button>회원가입</button>
-      </div>
-    </div>
-  </header>
+  <!-- header -->
+  <div id="header"></div>
 
   <main class="page">
     <section class="info">
@@ -84,8 +71,10 @@
 
   <!-- ✅ module은 기본 defer라 defer 없어도 됨(있어도 무방) -->
   <script type="module" src="./js/render-places-main.js"></script>
+  <script src="./js/common.js"></script>
   <!-- ⭐ 추가: URL 파라미터로 카테고리 전달받기 -->
 <script>
+  
   // result.js에서 넘긴 카테고리 값을 results.js로 전달
   const urlParams = new URLSearchParams(window.location.search);
   const selectedCategories = urlParams.get('categories'); // 예: ?categories=tour,food,cafe
