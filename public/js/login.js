@@ -185,7 +185,11 @@ const login = () => {
                     closePopup();
                     resetForm();
                 } else {
+<<<<<<< HEAD
                     window.location.href = 'index.html';
+=======
+                    window.location.href = 'main.html';
+>>>>>>> 9968bd577b888ff740ec3d3ef69bf34004de8734
                 }
             }, 1500);
         })

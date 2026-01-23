@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 라이브러리 폴더 (용량이 크므로 제외)
 node_modules/
 
@@ -14,3 +15,10 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+=======
+node_modules/
+.env
+.env.local
+*.log
+.DS_Store
+>>>>>>> 9968bd577b888ff740ec3d3ef69bf34004de8734

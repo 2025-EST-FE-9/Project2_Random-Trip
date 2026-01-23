@@ -2,19 +2,19 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>여행지 추천 중...</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>여행 준비 중...</title>
   <link rel="stylesheet" href="./css/loading.css" />
 </head>
 <body>
+
   <div class="loading-container">
-    <img src="./IMG/global-223_256.gif" alt="로딩중" class="loading-img" />
-    <p>여행지를 추천하는 중입니다...</p>
+    <div class="dice" id="dice">
+      <div class="face" id="diceFace">✈️</div>
+    </div>
+    <p id="loadingText">랜덤 여행을 준비 중</p>
   </div>
 
-  <script>
-    setTimeout(() => {
-      location.href = "result.html";
-    }, 2500); // 2.5초
-  </script>
+  <script src="./js/loading.js"></script>
 </body>
 </html>

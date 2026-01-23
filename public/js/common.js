@@ -5,7 +5,11 @@ function createHeader() {
         <header>
             <div id="headerContainer">
                 <div id="headerHomeBtn">
+<<<<<<< HEAD
                     <a href="index.html">
+=======
+                    <a href="main.html">
+>>>>>>> 9968bd577b888ff740ec3d3ef69bf34004de8734
                         <img src="./IMG/rogo.png" alt="로고">
                     </a>
                 </div>
